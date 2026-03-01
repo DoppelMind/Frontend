@@ -1,0 +1,749 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════
+   COLOR TOKENS
+═══════════════════════════════════════════════════════════════════ */
+:root {
+  color-scheme: dark;
+  --void:       #080612;
+  --abyss:      #100d1e;
+  --deep:       #16122a;
+  --dark:       #1c1830;
+  --mid:        #241f3a;
+  --raised:     #2d2748;
+  --border:     #3e2f5c;
+  --border2:    #5a4280;
+
+  --gold:       #d4a017;
+  --gold-lt:    #f5c842;
+  --gold-dk:    #7a5c0a;
+
+  --wine:       #7a1528;
+  --wine-lt:    #c42040;
+  --wine-dk:    #40091a;
+
+  --teal:       #0d5c6e;
+  --teal-lt:    #16899e;
+
+  --jade:       #0d5c40;
+  --jade-lt:    #1aaf74;
+
+  --cream:      #e8d5a3;
+  --warm:       #b09070;
+  --dim:        #6b5545;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GLOBAL RESET
+═══════════════════════════════════════════════════════════════════ */
+* { scroll-behavior: smooth; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   FONT UTILITIES
+═══════════════════════════════════════════════════════════════════ */
+.font-pixel { font-family: var(--font-pixel), "Courier New", monospace; }
+.font-vt    { font-family: var(--font-vt),    "Courier New", monospace; letter-spacing: 0.04em; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PIXEL PANELS (double-border RPG style)
+═══════════════════════════════════════════════════════════════════ */
+.panel {
+  background: var(--dark);
+  border: 2px solid var(--gold);
+  border-radius: 1px;
+  box-shadow:
+    0 0 0 1px var(--gold-dk),
+    0 0 0 5px var(--void),
+    0 0 0 7px var(--gold-dk),
+    0 0 24px rgba(212, 160, 23, 0.06),
+    0 16px 48px rgba(0, 0, 0, 0.88),
+    inset 0 1px 0 rgba(245, 200, 66, 0.10),
+    inset 0 0 32px rgba(0, 0, 0, 0.35);
+}
+.panel-wine {
+  background: var(--dark);
+  border: 2px solid var(--wine-lt);
+  border-radius: 1px;
+  box-shadow:
+    0 0 0 1px var(--wine-dk),
+    0 0 0 5px var(--void),
+    0 0 0 7px var(--wine-dk),
+    0 0 20px rgba(196, 32, 64, 0.07),
+    0 16px 48px rgba(0, 0, 0, 0.88);
+}
+.panel-teal {
+  background: var(--dark);
+  border: 2px solid var(--teal-lt);
+  border-radius: 1px;
+  box-shadow:
+    0 0 0 1px var(--teal),
+    0 0 0 5px var(--void),
+    0 0 0 7px var(--teal),
+    0 16px 48px rgba(0, 0, 0, 0.88);
+}
+.panel-jade {
+  background: var(--dark);
+  border: 2px solid var(--jade-lt);
+  border-radius: 1px;
+  box-shadow:
+    0 0 0 1px var(--jade),
+    0 0 0 5px var(--void),
+    0 0 0 7px var(--jade),
+    0 16px 48px rgba(0, 0, 0, 0.88);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIALOGUE BOX (RPG classic — smooth, elegant, premium)
+═══════════════════════════════════════════════════════════════════ */
+.dialogue {
+  /* Subtle gradient interior instead of flat black */
+  background: linear-gradient(155deg, #0e0b1e 0%, #080612 55%, #0c091a 100%);
+  border: 2px solid var(--gold);
+  border-radius: 2px;
+  box-shadow:
+    /* Double-border pixel frame */
+    0 0 0 1px var(--gold-dk),
+    0 0 0 6px var(--void),
+    0 0 0 8px var(--gold-dk),
+    /* Atmospheric outer glow */
+    0 0 18px rgba(212, 160, 23, 0.09),
+    0 0 48px rgba(212, 160, 23, 0.04),
+    /* Depth shadow */
+    0 24px 64px rgba(0, 0, 0, 0.96),
+    /* Inner top highlight */
+    inset 0 1px 0 rgba(245, 200, 66, 0.16),
+    /* Subtle inner shadow */
+    inset 0 0 40px rgba(0, 0, 0, 0.45);
+  position: relative;
+  overflow: visible;
+}
+.dialogue-wine {
+  background: linear-gradient(155deg, #1a0810 0%, #40091a 50%, #280612 100%);
+  border: 2px solid var(--wine-lt);
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px var(--wine-dk),
+    0 0 0 6px var(--void),
+    0 0 0 8px var(--wine-dk),
+    0 0 18px rgba(196, 32, 64, 0.10),
+    0 24px 64px rgba(0, 0, 0, 0.96),
+    inset 0 1px 0 rgba(196, 64, 80, 0.15),
+    inset 0 0 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: visible;
+}
+
+/* Corner ornaments — glowing ◆ */
+.dialogue::before,
+.dialogue::after {
+  position: absolute;
+  font-size: 12px;
+  line-height: 1;
+  top: -10px;
+  color: var(--gold-lt);
+  text-shadow: 0 0 8px var(--gold), 0 0 18px var(--gold-dk);
+}
+.dialogue::before { content: "◆"; left: 8px; }
+.dialogue::after  { content: "◆"; right: 8px; }
+
+.dialogue-wine::before,
+.dialogue-wine::after {
+  position: absolute;
+  font-size: 12px;
+  line-height: 1;
+  top: -10px;
+  color: var(--wine-lt);
+  text-shadow: 0 0 8px var(--wine-lt), 0 0 18px var(--wine);
+}
+.dialogue-wine::before { content: "◆"; left: 8px; }
+.dialogue-wine::after  { content: "◆"; right: 8px; }
+
+/* Active typing state — brighter border */
+.dialogue-typing {
+  border-color: var(--gold-lt);
+  box-shadow:
+    0 0 0 1px var(--gold-dk),
+    0 0 0 6px var(--void),
+    0 0 0 8px var(--gold-dk),
+    0 0 22px rgba(245, 200, 66, 0.14),
+    0 24px 64px rgba(0, 0, 0, 0.96),
+    inset 0 1px 0 rgba(245, 200, 66, 0.20),
+    inset 0 0 40px rgba(0, 0, 0, 0.45);
+  animation: dialoguePulse 1.6s ease-in-out infinite;
+}
+@keyframes dialoguePulse {
+  0%, 100% { box-shadow:
+    0 0 0 1px var(--gold-dk), 0 0 0 6px var(--void), 0 0 0 8px var(--gold-dk),
+    0 0 18px rgba(245,200,66,0.10), 0 24px 64px rgba(0,0,0,0.96),
+    inset 0 1px 0 rgba(245,200,66,0.16), inset 0 0 40px rgba(0,0,0,0.45); }
+  50%       { box-shadow:
+    0 0 0 1px var(--gold-dk), 0 0 0 6px var(--void), 0 0 0 8px var(--gold-dk),
+    0 0 28px rgba(245,200,66,0.18), 0 24px 64px rgba(0,0,0,0.96),
+    inset 0 1px 0 rgba(245,200,66,0.22), inset 0 0 40px rgba(0,0,0,0.45); }
+}
+
+/* Speaker name plate */
+.nameplate {
+  display: inline-block;
+  background: var(--gold-dk);
+  border: 2px solid var(--gold);
+  border-radius: 1px;
+  padding: 2px 12px;
+  font-family: var(--font-pixel), monospace;
+  font-size: 8px;
+  color: var(--gold-lt);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: -2px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 8px rgba(212,160,23,0.15);
+}
+.nameplate-wine {
+  background: var(--wine-dk);
+  border-color: var(--wine-lt);
+  color: var(--wine-lt);
+  box-shadow: 0 0 8px rgba(196,32,64,0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RPG BUTTONS — premium with shimmer + press feedback
+═══════════════════════════════════════════════════════════════════ */
+.btn-rpg {
+  font-family: var(--font-pixel), monospace;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  padding: 14px 28px;
+  background: var(--gold);
+  color: var(--void);
+  border: none;
+  border-radius: 1px;
+  cursor: pointer;
+  position: relative;
+  /* Clip shimmer pseudo-element */
+  overflow: hidden;
+  /* Smooth hover transition */
+  transition: transform 0.06s, box-shadow 0.06s, background 0.12s, filter 0.12s;
+  box-shadow:
+    4px 4px 0 var(--gold-dk),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.22),
+    inset  2px  2px 0 rgba(255, 255, 255, 0.20),
+    0 0 16px rgba(212, 160, 23, 0.12);
+}
+
+/* Shimmer layer (inside btn via ::after) */
+.btn-rpg::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: -80%;
+  width: 52%;
+  height: 120%;
+  background: linear-gradient(
+    92deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    rgba(255, 255, 255, 0.10),
+    transparent
+  );
+  transform: skewX(-18deg);
+  pointer-events: none;
+  /* Hidden by default */
+  opacity: 0;
+}
+.btn-rpg:not(:disabled):hover::after {
+  opacity: 1;
+  animation: btnShimmer 0.55s ease-out forwards;
+}
+
+@keyframes btnShimmer {
+  from { left: -80%; opacity: 1; }
+  to   { left: 130%; opacity: 0; }
+}
+
+.btn-rpg:not(:disabled):hover {
+  background: var(--gold-lt);
+  transform: translate(-1px, -1px);
+  box-shadow:
+    5px 5px 0 var(--gold-dk),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.15),
+    inset  2px  2px 0 rgba(255, 255, 255, 0.28),
+    0 0 20px rgba(212, 160, 23, 0.22);
+}
+.btn-rpg:not(:disabled):active {
+  transform: translate(3px, 3px);
+  box-shadow:
+    1px 1px 0 var(--gold-dk),
+    inset 2px 2px 0 rgba(0, 0, 0, 0.25),
+    0 0 6px rgba(212, 160, 23, 0.08);
+  filter: brightness(0.92);
+}
+.btn-rpg:disabled {
+  opacity: 0.40;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+/* Wine variant */
+.btn-rpg-wine {
+  background: var(--wine);
+  color: var(--cream);
+  box-shadow:
+    4px 4px 0 var(--wine-dk),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.30),
+    inset  2px  2px 0 rgba(255, 100, 100, 0.14),
+    0 0 16px rgba(196, 32, 64, 0.10);
+}
+.btn-rpg-wine:not(:disabled):hover {
+  background: var(--wine-lt);
+  box-shadow:
+    5px 5px 0 var(--wine-dk),
+    inset  2px  2px 0 rgba(255, 100, 100, 0.18),
+    0 0 20px rgba(196, 32, 64, 0.20);
+}
+.btn-rpg-wine:not(:disabled):active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 var(--wine-dk);
+}
+.btn-rpg-wine::after {
+  background: linear-gradient(
+    92deg,
+    transparent,
+    rgba(255, 140, 140, 0.20),
+    rgba(255, 100, 100, 0.10),
+    transparent
+  );
+}
+
+/* Ghost/outline variant */
+.btn-rpg-ghost {
+  background: transparent;
+  color: var(--warm);
+  border: 2px solid var(--border);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.btn-rpg-ghost:not(:disabled):hover {
+  border-color: var(--border2);
+  color: var(--cream);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55);
+}
+.btn-rpg-ghost:not(:disabled):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.55);
+}
+.btn-rpg-ghost::after {
+  background: linear-gradient(
+    92deg,
+    transparent,
+    rgba(255, 255, 255, 0.10),
+    transparent
+  );
+}
+
+/* Size modifier */
+.btn-rpg-sm { font-size: 7px; padding: 10px 18px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   INPUT — enhanced focus glow
+═══════════════════════════════════════════════════════════════════ */
+.input-rpg {
+  background: var(--abyss);
+  border: 2px solid var(--border);
+  border-radius: 1px;
+  color: var(--cream);
+  font-family: var(--font-vt), monospace;
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.input-rpg::placeholder { color: var(--dim); }
+.input-rpg:focus {
+  border-color: var(--gold);
+  box-shadow:
+    0 0 0 1px var(--gold-dk),
+    0 0 10px rgba(212, 160, 23, 0.16),
+    0 0 22px rgba(212, 160, 23, 0.07),
+    inset 0 1px 0 rgba(212, 160, 23, 0.07);
+  animation: inputGlow 2.2s ease-in-out infinite;
+}
+@keyframes inputGlow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--gold-dk), 0 0  8px rgba(212,160,23,0.12); }
+  50%       { box-shadow: 0 0 0 1px var(--gold-dk), 0 0 18px rgba(212,160,23,0.22), 0 0 32px rgba(212,160,23,0.06); }
+}
+.input-rpg:disabled { opacity: 0.42; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   TYPEWRITER: CHAR REVEAL & CURSOR
+═══════════════════════════════════════════════════════════════════ */
+
+/* Each newly-typed character pops in with a brief blur-to-sharp effect */
+@keyframes charReveal {
+  0%   { opacity: 0; filter: blur(3px); transform: translateY(2px) scale(0.96); }
+  60%  { opacity: 0.85; filter: blur(0.5px); }
+  100% { opacity: 1;  filter: blur(0);    transform: translateY(0) scale(1); }
+}
+.char-appear {
+  display: inline;
+  animation: charReveal 0.10s ease-out forwards;
+}
+
+/* Blinking text cursor while typewriter is active */
+@keyframes cursorPulse {
+  0%, 44%  { opacity: 1; text-shadow: 0 0 5px var(--gold), 0 0 12px var(--gold-dk); }
+  50%, 94% { opacity: 0; text-shadow: none; }
+  100%     { opacity: 1; }
+}
+.typing-cursor {
+  color: var(--gold-lt);
+  animation: cursorPulse 0.85s steps(1) infinite;
+  display: inline;
+  user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AMBIENT PARTICLES — keyframe (values set via CSS vars on element)
+═══════════════════════════════════════════════════════════════════ */
+@keyframes particleDrift {
+  0%   { transform: translateY(0)       translateX(0);                    opacity: 0; }
+  10%  { opacity: var(--p-opacity, 0.3); }
+  90%  { opacity: var(--p-opacity, 0.3); }
+  100% { transform: translateY(-130px)  translateX(var(--p-drift, 10px)); opacity: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROOM / SCENE BACKGROUNDS
+═══════════════════════════════════════════════════════════════════ */
+.room-bg {
+  background:
+    radial-gradient(ellipse 50% 52% at 50% -5%, rgba(212,160,23,0.07) 0%, transparent 65%),
+    linear-gradient(to bottom, #080612 0%, #100d1e 55%, #0a0910 100%);
+  position: relative;
+}
+/* Static scanline texture (built into room-bg) */
+.room-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0, transparent 3px,
+      rgba(255, 255, 255, 0.012) 3px, rgba(255, 255, 255, 0.012) 4px);
+  z-index: 0;
+}
+/* Brick/stone grid texture */
+.wall-texture::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0, transparent 63px,
+      rgba(255,255,255,0.016) 63px, rgba(255,255,255,0.016) 64px),
+    repeating-linear-gradient(0deg,  transparent 0, transparent 31px,
+      rgba(255,255,255,0.016) 31px, rgba(255,255,255,0.016) 32px);
+}
+/* Overhead lamp glow cone */
+.spotlight {
+  background: radial-gradient(
+    ellipse 45% 58% at 50% -10%,
+    rgba(255, 200, 100, 0.13) 0%,
+    rgba(255, 180,  60, 0.07) 25%,
+    rgba(255, 140,  20, 0.03) 50%,
+    transparent 68%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TEXT GLOW UTILITIES
+═══════════════════════════════════════════════════════════════════ */
+.glow-gold  { text-shadow: 0 0 8px var(--gold),    0 0 18px var(--gold-dk); }
+.glow-wine  { text-shadow: 0 0 8px var(--wine-lt), 0 0 18px var(--wine);    }
+.glow-jade  { text-shadow: 0 0 8px var(--jade-lt); }
+.glow-cream { text-shadow: 0 0 6px rgba(232, 213, 163, 0.40); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   DIVIDERS & BADGES
+═══════════════════════════════════════════════════════════════════ */
+.pixel-divider {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dk), var(--gold), var(--gold-dk), transparent);
+}
+.pixel-divider-wine {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--wine-dk), var(--wine-lt), var(--wine-dk), transparent);
+}
+.pixel-divider-dim {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), var(--border2), var(--border), transparent);
+}
+
+.badge {
+  font-family: var(--font-pixel), monospace;
+  font-size: 6px;
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 1px;
+}
+.badge-wine  { color: var(--wine-lt); }
+.badge-gold  { color: var(--gold);    }
+.badge-jade  { color: var(--jade-lt); }
+.badge-teal  { color: var(--teal-lt); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PIXEL SPRITE RENDERING
+═══════════════════════════════════════════════════════════════════ */
+.pixel-sprite {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ── Emotion sprite micro-animations ─────────────────────────────
+   Applied to the inner wrapper div so transforms compose safely
+   with the outer idle-float (different elements = no conflict).
+   All effects are GPU-composited (transform / filter).
+──────────────────────────────────────────────────────────────── */
+
+/* nervous: ±1px horizontal tremor */
+@keyframes sprite-nervous {
+  0%,  100% { transform: translateX(0);    }
+  25%        { transform: translateX(-1px); }
+  75%        { transform: translateX(1px);  }
+}
+.sprite-nervous {
+  animation: sprite-nervous 0.28s linear infinite;
+}
+
+/* fearful: ±2px tremor, slightly faster than nervous */
+@keyframes sprite-fearful {
+  0%,  100% { transform: translateX(0);    }
+  25%        { transform: translateX(-2px); }
+  75%        { transform: translateX(2px);  }
+}
+.sprite-fearful {
+  animation: sprite-fearful 0.20s linear infinite;
+}
+
+/* angry: pulsing deep-red drop-shadow glow */
+@keyframes sprite-angry-glow {
+  0%,  100% { filter: drop-shadow(0 0 2px rgba(180, 28, 14, 0.50)); }
+  50%        { filter: drop-shadow(0 0 7px rgba(210, 38, 18, 0.82)); }
+}
+.sprite-angry {
+  animation: sprite-angry-glow 1.6s ease-in-out infinite;
+}
+
+/* sad: slight downward droop + reduced brightness / saturation */
+.sprite-sad {
+  transform: translateY(2px);
+  filter: brightness(0.78) saturate(0.80);
+}
+
+/* confident: pulsing warm-gold drop-shadow glow (very tenue) */
+@keyframes sprite-confident-glow {
+  0%,  100% { filter: drop-shadow(0 0 2px rgba(212, 160, 23, 0.28)); }
+  50%        { filter: drop-shadow(0 0 6px rgba(245, 200, 66, 0.52)); }
+}
+.sprite-confident {
+  animation: sprite-confident-glow 2.2s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SCROLLBAR
+═══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 1px solid var(--gold-dk);
+  border-radius: 1px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAP HOTSPOT — pulsing ping ring on suspect rooms
+═══════════════════════════════════════════════════════════════════ */
+@keyframes map-hotspot-ping {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  65%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.map-hotspot-ping {
+  animation: map-hotspot-ping 1.9s ease-out infinite;
+}
+
+/*
+ * Suppress browser default focus outline on hotspot buttons.
+ * The visual focus indicator is the room-border glow driven by JS
+ * (onFocus → setFocused → active state → accent border + box-shadow).
+ * :focus-visible targets keyboard-only focus, keeping accessibility intact.
+ */
+.map-hotspot-btn:focus         { outline: none; }
+.map-hotspot-btn:focus-visible { outline: none; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   VOLUME SLIDER — pixel RPG style
+═══════════════════════════════════════════════════════════════════ */
+.vol-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 72px;
+  height: 6px;
+  background: var(--border);
+  border: 1px solid var(--border2);
+  border-radius: 1px;
+  outline: none;
+  cursor: pointer;
+}
+.vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 14px;
+  background: var(--gold);
+  border: 1px solid var(--gold-dk);
+  border-radius: 1px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--gold-dk);
+}
+.vol-slider::-moz-range-thumb {
+  width: 10px;
+  height: 14px;
+  background: var(--gold);
+  border: 1px solid var(--gold-dk);
+  border-radius: 1px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 var(--gold-dk);
+}
+.vol-slider::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--gold-dk) 0%,
+    var(--gold-dk) calc(var(--val, 80) * 1%),
+    var(--border) calc(var(--val, 80) * 1%),
+    var(--border) 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   NPC PATROL ANIMATIONS  (used by MapHub NPC layer)
+   npc-ltr  — left→right patrol, sprite faces right
+   npc-rtl  — right→left patrol, sprite faces left (scaleX flip)
+   npc-idle — vertical float for stationary NPCs
+   npc-bob  — 2-frame walk-step bounce (combined with patrol via inner div)
+═══════════════════════════════════════════════════════════════════ */
+@keyframes npc-ltr {
+  from { transform: translateX(-48px) scaleX(1);   }
+  to   { transform: translateX(1700px) scaleX(1);  }
+}
+@keyframes npc-rtl {
+  from { transform: translateX(1700px) scaleX(-1); }
+  to   { transform: translateX(-48px)  scaleX(-1); }
+}
+@keyframes npc-idle {
+  0%, 100% { transform: translateY(0px);  }
+  40%, 60% { transform: translateY(-5px); }
+}
+@keyframes npc-bob {
+  0%, 100% { transform: translateY(0px);  }
+  50%       { transform: translateY(-3px); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DESK CLERK ANIMATIONS  (MapHub lobby)
+   map-typing-bob   — NPC bobs up/down as if pressing keys
+   map-screen-scroll — code lines scroll upward continuously (seamless)
+   map-cursor-blink  — blinking caret on active line
+   map-hand-left/right — pixel hands tap keyboard alternately
+═══════════════════════════════════════════════════════════════════ */
+@keyframes map-typing-bob {
+  0%,  100% { transform: translateY(0px);  }
+  35%       { transform: translateY(-1px); }
+  65%       { transform: translateY(0px);  }
+}
+.map-typing-bob {
+  animation: map-typing-bob 1.15s ease-in-out infinite;
+}
+
+/* Strip is 2× screen height; 18px = 6 lines × 3px step → seamless loop */
+@keyframes map-screen-scroll {
+  0%   { transform: translateY(0px);   }
+  100% { transform: translateY(-18px); }
+}
+.map-screen-scroll {
+  animation: map-screen-scroll 2.8s linear infinite;
+}
+
+@keyframes map-cursor-blink {
+  0%,  49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.map-cursor-blink {
+  animation: map-cursor-blink 0.55s step-start infinite;
+}
+
+@keyframes map-hand-left {
+  0%, 100% { transform: translateY(0px);  }
+  30%       { transform: translateY(-3px); }
+  55%       { transform: translateY(0px);  }
+}
+.map-hand-left {
+  animation: map-hand-left 0.62s ease-in-out infinite;
+}
+
+@keyframes map-hand-right {
+  0%, 100% { transform: translateY(0px);  }
+  15%       { transform: translateY(-3px); }
+  45%       { transform: translateY(0px);  }
+  80%       { transform: translateY(-2px); }
+}
+.map-hand-right {
+  animation: map-hand-right 0.62s ease-in-out infinite 0.20s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SUGGEST TOOLTIP — appears on hover over the 💡 button
+═══════════════════════════════════════════════════════════════════ */
+.suggest-btn-wrap:hover .suggest-tooltip {
+  opacity: 1 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MAILBOX REPORT ICON — pixel document pulsing glow
+═══════════════════════════════════════════════════════════════════ */
+@keyframes mailbox-report-ping {
+  0%,  100% { opacity: 1;    transform: translateX(-50%) scale(1);    }
+  50%        { opacity: 0.65; transform: translateX(-50%) scale(1.12); }
+}
+.mailbox-report-ping {
+  animation: mailbox-report-ping 1.4s ease-in-out infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SUS-O-SCAN DEVICE — glitch (static tone) + LED blink
+═══════════════════════════════════════════════════════════════════ */
+@keyframes susoscan-glitch {
+  0%,  90%, 100% { transform: translate(0, 0);     opacity: 1;    }
+  91%             { transform: translate(-1px, 1px); opacity: 0.92; }
+  93%             { transform: translate(1px, -1px); opacity: 0.95; }
+  95%             { transform: translate(0, 1px);    opacity: 0.90; }
+  97%             { transform: translate(-1px, 0);   opacity: 0.94; }
+}
+.susoscan-static {
+  animation: susoscan-glitch 3.2s steps(1) infinite;
+}
+
+@keyframes susoscan-blink {
+  0%,  48% { opacity: 1; }
+  50%, 98%  { opacity: 0.15; }
+  100%      { opacity: 1; }
+}
+.susoscan-blink {
+  animation: susoscan-blink 1.1s ease-in-out infinite;
+}
