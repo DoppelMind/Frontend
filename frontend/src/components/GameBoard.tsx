@@ -45,6 +45,7 @@ export default function GameBoard({
   onToggleReq,
   language,
 }: GameBoardProps) {
+  const [showRules, setShowRules] = useState(false);
   const [showAccuseModal, setShowAccuseModal] = useState(false);
   const [view, setView] = useState<View>("map");
   const [fading, setFading] = useState(false);
@@ -217,6 +218,7 @@ export default function GameBoard({
       >
         {/* Left: logo + case title */}
         <div className="flex items-center gap-3 min-w-0">
+          
           <span
             className="font-pixel glow-gold animate-glow-gold flex-shrink-0"
             style={{ fontSize: 9, color: "var(--gold-lt)" }}
@@ -230,18 +232,12 @@ export default function GameBoard({
           >
             {gameData.case.title}
           </span>
+
         </div>
 
         {/* Right: stats + audio controls + report button + accusation button */}
         <div className="flex items-center gap-4 flex-shrink-0">
-          {totalQuestions > 0 && (
-            <span
-              className="font-pixel hidden sm:block"
-              style={{ fontSize: 6, color: "var(--dim)" }}
-            >
-              {totalQuestions} {t.game.questions}{totalQuestions !== 1 ? "S" : ""}
-            </span>
-          )}
+          
 
           {/* Audio controls */}
           <div className="flex items-center gap-2">
@@ -496,6 +492,33 @@ export default function GameBoard({
           </div>
         </div>
       )}
+      {view === "map" && (
+  <button
+    onClick={() => setShowRules(true)}
+    style={{
+      position: "fixed",
+      bottom: 14,
+      left: 265,
+      padding: "12px 18px",
+      fontFamily: "var(--font-pixel)",
+      fontSize: 10,
+      letterSpacing: "0.12em",
+      background: "linear-gradient(180deg, #2a0000 0%, #120000 100%)",
+      color: "#ff3b3b",
+      border: "2px solid #8b0000",
+      boxShadow: `
+        0 0 8px rgba(255,0,0,0.6),
+        0 0 18px rgba(255,0,0,0.4),
+        inset 0 0 6px rgba(255,0,0,0.3)
+      `,
+      textTransform: "uppercase",
+      cursor: "pointer",
+      zIndex: 150,
+    }}
+  >
+    RULES
+  </button>
+)}
 
       {/* ── Accusation Modal ──────────────────────────────────── */}
       {showAccuseModal && (
@@ -509,6 +532,67 @@ export default function GameBoard({
           language={language}
         />
       )}
+      {showRules && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(5,0,0,0.85)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 300,
+    }}
+    onClick={() => setShowRules(false)}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: 480,
+        background: "linear-gradient(180deg, #140000 0%, #0a0000 100%)",
+        border: "2px solid #8b0000",
+        boxShadow: "0 0 30px rgba(255,0,0,0.4)",
+        padding: 24,
+        color: "#ffcccc",
+        fontFamily: "var(--font-vt)",
+      }}
+    >
+      <h2
+        style={{
+          color: "#ff3b3b",
+          fontFamily: "var(--font-pixel)",
+          marginBottom: 16,
+          textShadow: "0 0 8px rgba(255,0,0,0.6)",
+        }}
+      >
+        GAME RULES
+      </h2>
+
+      <p>🕵️ Your mission is to identify the impostor.</p>
+      <p>⚠ Be cautious with your questions — they are skilled deceivers.</p>
+      <p>❓ You may ask up to <strong>5 questions</strong> initially.</p>
+      <p>➕ After that, you can choose to ask <strong>2 additional questions</strong>.</p>
+      <p>🚫 If you choose not to ask extra questions, you must decide.</p>
+      <p>🎯 Maximum total questions: <strong>7</strong>.</p>
+      <p>🧠 Analyze carefully before making your final decision.</p>
+
+      <div style={{ marginTop: 20, textAlign: "right" }}>
+        <button
+          onClick={() => setShowRules(false)}
+          style={{
+            padding: "8px 14px",
+            background: "#330000",
+            border: "1px solid #aa0000",
+            color: "#ff5555",
+            cursor: "pointer",
+          }}
+        >
+          CLOSE
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
