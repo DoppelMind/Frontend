@@ -129,23 +129,12 @@ export const unlockExtra = async (
   gameId: string,
   suspectId: string
 ) => {
-  const response = await fetch("/api/game/unlock-extra", {
+  const res = await fetch(`${API_BASE}/api/game/unlock-extra`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      game_id: gameId,
-      suspect_id: suspectId,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ game_id: gameId, suspect_id: suspectId }),
   });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.detail || "Failed to unlock extra questions");
-  }
-
-  return response.json();
+  return handleResponse(res);
 };
 
 export async function narrateText(
