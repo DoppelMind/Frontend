@@ -16,6 +16,7 @@ import { Language, formatConfidence, getText } from "@/lib/i18n";
 ═══════════════════════════════════════════════════════════════════ */
 
 interface Rect { left: string; top: string; width: string; height: string }
+interface Point { x: number; y: number }
 
 const LOBBY: Rect = { left: "38%", top: "14%", width: "24%", height: "40%" };
 
@@ -57,6 +58,10 @@ const PALETTES = [
 ] as const;
 
 const LOBBY_PAL = { accent: "#5a4280", rgb: "90,66,128", floor: "#09071a", tile: "rgba(90,66,128,0.06)" };
+
+function pct(value: string): number {
+  return parseFloat(value) / 100;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    FLOOR TILE HELPER
@@ -298,9 +303,8 @@ function DeskClerk({ away = false }: { away?: boolean }) {
 
       {/* ── Character — working at desk ─────────────────────────── */}
       {!away && (
-        <div style={{ position: "absolute", top: 11, left: "50%", transform: "translateX(-50%)", lineHeight: 0, zIndex: 9 }}>
+        <div style={{ position: "absolute", top: 5, left: "50%", transform: "translateX(-50%)", lineHeight: 0, zIndex: 9 }}>
           <div className="map-typing-bob">
-            {/* Back-facing placeholder sprite (ready to swap with real PNG sprite) */}
             <svg
               width={36}
               height={54}
@@ -658,10 +662,12 @@ interface SuspectRoomProps {
   questionCount: number;
   idx: number;
   onSelect: () => void;
+  onHoverStart?: () => void;
+  onHoverEnd?: () => void;
   language: Language;
 }
 
-function SuspectRoom({ rect, pal, suspect, questionCount, idx, onSelect, language }: SuspectRoomProps) {
+function SuspectRoom({ rect, pal, suspect, questionCount, idx, onSelect, onHoverStart, onHoverEnd, language }: SuspectRoomProps) {
   const t = getText(language);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
@@ -669,8 +675,8 @@ function SuspectRoom({ rect, pal, suspect, questionCount, idx, onSelect, languag
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); onHoverStart?.(); }}
+      onMouseLeave={() => { setHovered(false); onHoverEnd?.(); }}
       style={{ position:"absolute", ...rect, zIndex:4, overflow:"visible", cursor:"pointer" }}
     >
       {/* ── Inner room (overflow:hidden clips scene, not box-shadows) ── */}
@@ -1000,7 +1006,28 @@ export default function MapHub({
   const [openMailboxReport, setOpenMailboxReport] = useState(false);
   const [courierSeq, setCourierSeq] = useState(0);
   const [clerkAway, setClerkAway] = useState(false);
+  const [hoverRoomIdx, setHoverRoomIdx] = useState<number | null>(null);
+  const [detectivePos, setDetectivePos] = useState<Point>({ x: 0, y: 0 });
+  const [detectiveMoving, setDetectiveMoving] = useState(false);
+  const mapRef = useRef<HTMLDivElement | null>(null);
   const returnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const lastTsRef = useRef<number | null>(null);
+  const posRef = useRef<Point>({ x: 0, y: 0 });
+  const movingRef = useRef(false);
+  const hoverRef = useRef<number | null>(null);
+  const initializedRef = useRef(false);
+  const layoutRef = useRef<{
+    ready: boolean;
+    idle: Point;
+    doorTargets: Point[];
+    lobby: { minX: number; maxX: number; minY: number; maxY: number };
+  }>({
+    ready: false,
+    idle: { x: 0, y: 0 },
+    doorTargets: [],
+    lobby: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+  });
   const mailboxHasReport = globalReportState.status === "ready" && !!globalReportState.report;
 
   useEffect(() => {
@@ -1021,6 +1048,10 @@ export default function MapHub({
     };
   }, []);
 
+  useEffect(() => {
+    hoverRef.current = hoverRoomIdx;
+  }, [hoverRoomIdx]);
+
   const courierStart = {
     x: parseFloat(LOBBY.left) + parseFloat(LOBBY.width) * 0.43,
     y: parseFloat(LOBBY.top) + parseFloat(LOBBY.height) * 0.96,
@@ -1031,11 +1062,127 @@ export default function MapHub({
     y: parseFloat(LOBBY.top) + parseFloat(LOBBY.height) * 0.84,
   };
 
+  useEffect(() => {
+    const recalcLayout = () => {
+      const rect = mapRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+      const w = rect.width;
+      const h = rect.height;
+
+      const lobbyX = w * pct(LOBBY.left);
+      const lobbyY = h * pct(LOBBY.top);
+      const lobbyW = w * pct(LOBBY.width);
+      const lobbyH = h * pct(LOBBY.height);
+
+      const idle: Point = {
+        x: lobbyX + lobbyW * 0.50,
+        y: lobbyY + lobbyH * 0.34,
+      };
+
+      const lobbyClamp = {
+        minX: lobbyX + 12,
+        maxX: lobbyX + lobbyW - 12,
+        minY: lobbyY + 8,
+        maxY: lobbyY + lobbyH - 8,
+      };
+
+      // Fixed doorway anchors INSIDE the lobby bounds:
+      // 0 -> Sala A (left door), 1 -> Sala B (right door), 2 -> Sala C (bottom door)
+      const doorTargets: Point[] = [
+        { x: lobbyClamp.minX + 2, y: lobbyY + lobbyH * 0.47 },
+        { x: lobbyClamp.maxX - 2, y: lobbyY + lobbyH * 0.47 },
+        { x: lobbyX + lobbyW * 0.50, y: lobbyClamp.maxY - 2 },
+      ];
+
+      layoutRef.current = {
+        ready: true,
+        idle,
+        doorTargets,
+        lobby: lobbyClamp,
+      };
+
+      if (!initializedRef.current) {
+        initializedRef.current = true;
+        posRef.current = idle;
+        setDetectivePos(idle);
+        return;
+      }
+
+      const clamped: Point = {
+        x: Math.max(lobbyClamp.minX, Math.min(lobbyClamp.maxX, posRef.current.x)),
+        y: Math.max(lobbyClamp.minY, Math.min(lobbyClamp.maxY, posRef.current.y)),
+      };
+      posRef.current = clamped;
+      setDetectivePos(clamped);
+    };
+
+    const step = (ts: number) => {
+      const layout = layoutRef.current;
+      if (!layout.ready) {
+        rafRef.current = requestAnimationFrame(step);
+        return;
+      }
+
+      const prevTs = lastTsRef.current ?? ts;
+      const dt = Math.min(0.05, Math.max(0.001, (ts - prevTs) / 1000));
+      lastTsRef.current = ts;
+
+      const roomIdx = hoverRef.current;
+      const hasDoorTarget = roomIdx !== null && roomIdx >= 0 && roomIdx < layout.doorTargets.length;
+      const target = hasDoorTarget ? layout.doorTargets[roomIdx as number] : layout.idle;
+      const stopDistance = hasDoorTarget ? 14 : 2;
+
+      let next = { ...posRef.current };
+      const dx = target.x - next.x;
+      const dy = target.y - next.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > stopDistance) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const baseSpeed = 148; // px/s
+        const remain = dist - stopDistance;
+        const easing = hasDoorTarget
+          ? Math.max(0.55, Math.min(1, remain / 90))
+          : Math.max(0.60, Math.min(1, remain / 120));
+        const stepPx = Math.min(remain, baseSpeed * easing * dt);
+        next.x += nx * stepPx;
+        next.y += ny * stepPx;
+      }
+
+      next.x = Math.max(layout.lobby.minX, Math.min(layout.lobby.maxX, next.x));
+      next.y = Math.max(layout.lobby.minY, Math.min(layout.lobby.maxY, next.y));
+
+      const moved = Math.hypot(next.x - posRef.current.x, next.y - posRef.current.y) > 0.05;
+      posRef.current = next;
+
+      if (moved !== movingRef.current) {
+        movingRef.current = moved;
+        setDetectiveMoving(moved);
+      }
+      setDetectivePos(next);
+
+      rafRef.current = requestAnimationFrame(step);
+    };
+
+    recalcLayout();
+    rafRef.current = requestAnimationFrame(step);
+    window.addEventListener("resize", recalcLayout);
+
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTsRef.current = null;
+      window.removeEventListener("resize", recalcLayout);
+    };
+  }, []);
+
   return (
     <div className="h-full flex flex-col" style={{ background:"var(--void)" }}>
 
       {/* ── Map canvas ─────────────────────────────────────────── */}
-      <div className="flex-1 relative" style={{ minHeight:0 }}>
+      <div ref={mapRef} className="flex-1 relative" style={{ minHeight:0 }}>
 
         {/* Background (clipped so children/tooltips can still overflow) */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex:0 }}>
@@ -1067,6 +1214,30 @@ export default function MapHub({
         {/* Courier animation (lobby clerk delivering report to mailbox) */}
         <DeliveryCourier start={courierStart} target={mailboxTarget} seq={courierSeq} />
 
+        {/* Detective protagonist: walks to hovered interrogation door, never enters */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${detectivePos.x}px`,
+            top: `${detectivePos.y}px`,
+            transform: "translate(-50%, -90%)",
+            zIndex: 19,
+            pointerEvents: "none",
+            lineHeight: 0,
+            filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.42))",
+          }}
+        >
+          <div style={{ animation: detectiveMoving ? "npc-bob 0.26s steps(1) infinite" : "map-typing-bob 1.2s ease-in-out infinite" }}>
+            <img
+              src="/sprites/lobby_detective_topdown.png"
+              alt="Detective protagonist"
+              width={52}
+              height={52}
+              style={{ imageRendering: "pixelated" }}
+            />
+          </div>
+        </div>
+
         {/* Suspect rooms */}
         {gameData.suspects.map((suspect, idx) => (
           <SuspectRoom
@@ -1077,6 +1248,8 @@ export default function MapHub({
             questionCount={qCount(suspect.id)}
             idx={idx}
             onSelect={() => onSelectSuspect(suspect.id)}
+            onHoverStart={() => setHoverRoomIdx(idx)}
+            onHoverEnd={() => setHoverRoomIdx((current) => (current === idx ? null : current))}
             language={language}
           />
         ))}

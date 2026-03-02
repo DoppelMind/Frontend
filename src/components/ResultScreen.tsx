@@ -207,7 +207,7 @@ export default function ResultScreen({
             {t.result.newInvestigation}
           </button>
           <p className="font-pixel mt-8" style={{ fontSize: 6, color: "var(--dim)", letterSpacing: "0.15em" }}>
-            POWERED BY MISTRAL · mistral-small-latest
+            POWERED BY MISTRAL · mistral-large-latest
           </p>
         </div>
       </div>

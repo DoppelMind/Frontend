@@ -111,7 +111,7 @@ export default function LoadingScreen({ language }: LoadingScreenProps) {
 
         {/* Footer */}
         <p className="font-pixel" style={{ fontSize: 6, color: "var(--dim)", letterSpacing: "0.15em" }}>
-          mistral-small-latest
+          mistral-large-latest
         </p>
       </div>
     </div>

@@ -25,8 +25,7 @@ export interface SusOScanResult {
   narration: string;
   anomaly_delta: number;
   tone: "warm" | "cold" | "static";
-  reason_tags: string[];
-  sus_level: number;
+  reason: string;
 }
 
 export interface Message {
@@ -35,6 +34,7 @@ export interface Message {
   timestamp: number;
   emotion?: SuspectEmotion;
   sus_scan?: SusOScanResult;
+  sus_level?: number;
 }
 
 export interface GameData {

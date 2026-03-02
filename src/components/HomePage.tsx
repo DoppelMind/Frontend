@@ -157,7 +157,7 @@ export default function HomePage({
           className="font-pixel mt-10"
           style={{ fontSize: 6, color: "var(--dim)", letterSpacing: "0.15em" }}
         >
-          POWERED BY MISTRAL AI · mistral-small-latest
+          POWERED BY MISTRAL AI · mistral-large-latest
         </p>
       </div>
 

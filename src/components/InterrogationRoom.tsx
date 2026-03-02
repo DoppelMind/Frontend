@@ -6,7 +6,7 @@ import PixelCharacter from "./PixelCharacter";
 import DynamicLight from "./visual/DynamicLight";
 import ScanlineOverlay from "./visual/ScanlineOverlay";
 import PixelLamp from "./visual/PixelLamp";
-import { narrateText, scanSuspect } from "@/lib/api";
+import { narrateText, scanSuspect, ScanHintResult, transcribeInterrogationVoice } from "@/lib/api";
 import { Language, getText } from "@/lib/i18n";
 import { hasProfanity } from "@/lib/profanity";
 import { suggestQuestion } from "@/lib/api";
@@ -141,8 +141,20 @@ const [cardId] = useState(generateId());
   const [suggesting, setSuggesting] = useState(false);
   const [profanityError, setProfanityError] = useState(false);
   const [deviceScan, setDeviceScan] = useState<SusOScanResult | null>(null);
+  const [deviceLevel, setDeviceLevel] = useState(5);
+  const [scanHint, setScanHint] = useState<ScanHintResult | null>(null);
   const [scanning, setScanning] = useState(false);
   const [showSusoScan, setShowSusoScan] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voicePaused, setVoicePaused] = useState(false);
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [pendingSendAfterStop, setPendingSendAfterStop] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
 
   // Derive current dominant emotion from the latest suspect message
   const currentEmotion = [...messages]
@@ -183,6 +195,24 @@ const [cardId] = useState(generateId());
     setTypewriterPos(0);
     prevCountRef.current = messages.length;
     setDeviceScan(null);
+    setDeviceLevel(5);
+    setScanHint(null);
+    setVoiceMode(false);
+    setVoiceRecording(false);
+    setVoicePaused(false);
+    setVoiceBlob(null);
+    setVoiceError(null);
+    setVoiceProcessing(false);
+    setPendingSendAfterStop(false);
+    audioChunksRef.current = [];
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
 
     if (audioRef.current) {
       audioRef.current.pause();
@@ -194,15 +224,29 @@ const [cardId] = useState(generateId());
   // Sync deviceScan from latest suspect message that has sus_scan
   useEffect(() => {
     const last = [...messages].reverse().find((m) => m.role === "suspect" && m.sus_scan);
-    if (last?.sus_scan) setDeviceScan(last.sus_scan);
+    if (last?.sus_scan) {
+      setDeviceScan(last.sus_scan);
+      setDeviceLevel(last.sus_level ?? 5);
+    }
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
 
   const handleScan = async () => {
     if (scanning || interrogating || !suspect) return;
     setScanning(true);
     try {
       const result = await scanSuspect(gameId, suspect.id);
-      setDeviceScan(result);
+      setScanHint(result);
     } catch { /* silently ignore */ }
     finally { setScanning(false); }
   };
@@ -227,7 +271,9 @@ const [cardId] = useState(generateId());
 
         // Narrate with ElevenLabs — silent fallback on TTS error (text still shown)
         if (suspect && audioEnabled) {
-          narrateText(lastMessage.content, suspect.id, lastMessage.emotion ?? "calm")
+          const level = lastMessage.sus_level ?? deviceLevel ?? 5;
+          const tone = lastMessage.sus_scan?.tone ?? deviceScan?.tone ?? "static";
+          narrateText(lastMessage.content, suspect.id, lastMessage.emotion ?? "calm", level, tone)
             .then((audio) => {
               audio.volume = volume;
               audioRef.current = audio;
@@ -268,6 +314,124 @@ const [cardId] = useState(generateId());
       pendingAudioRef.current = null;
     }
     setAutoplayBlocked(false);
+  };
+
+  const handleDiscardVoice = () => {
+    setPendingSendAfterStop(false);
+    setVoiceBlob(null);
+    setVoiceError(null);
+    audioChunksRef.current = [];
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    mediaRecorderRef.current = null;
+    setVoiceRecording(false);
+    setVoicePaused(false);
+  };
+
+  const submitVoiceBlob = async (blob: Blob) => {
+    if (!suspect || !blob || voiceProcessing) return;
+    setVoiceProcessing(true);
+    setVoiceError(null);
+    try {
+      const filename = blob.type.includes("wav") ? "question.wav" : "question.webm";
+      const { transcript } = await transcribeInterrogationVoice(blob, filename, language);
+      if (!transcript.trim()) {
+        setVoiceError(t.interrogation.voiceFallback);
+        return;
+      }
+      setQuestion(transcript);
+      const sendDirect = window.confirm(t.interrogation.voiceConfirmSend);
+      if (sendDirect) {
+        onAskQuestion(transcript);
+        setQuestion("");
+      }
+      setVoiceBlob(null);
+      audioChunksRef.current = [];
+    } catch (err) {
+      setVoiceError(err instanceof Error ? err.message : t.interrogation.voiceFallback);
+    } finally {
+      setVoiceProcessing(false);
+    }
+  };
+
+  const handleStartVoice = async () => {
+    if (voiceRecording || interrogating || voiceProcessing) return;
+    setVoiceError(null);
+    setVoiceBlob(null);
+    audioChunksRef.current = [];
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const preferredMime =
+        MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
+      const recorder = preferredMime
+        ? new MediaRecorder(stream, { mimeType: preferredMime })
+        : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = async () => {
+        const type = recorder.mimeType || "audio/webm";
+        const blob = new Blob(audioChunksRef.current, { type });
+        setVoiceBlob(blob.size > 0 ? blob : null);
+        setVoiceRecording(false);
+        setVoicePaused(false);
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+        }
+        if (pendingSendAfterStop && blob.size > 0) {
+          setPendingSendAfterStop(false);
+          await submitVoiceBlob(blob);
+        }
+      };
+      recorder.start(250);
+      setVoiceRecording(true);
+      setVoicePaused(false);
+    } catch {
+      setVoiceError(t.interrogation.voiceFallback);
+      handleDiscardVoice();
+    }
+  };
+
+  const handlePauseResumeVoice = () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+    if (recorder.state === "recording") {
+      recorder.pause();
+      setVoicePaused(true);
+      return;
+    }
+    if (recorder.state === "paused") {
+      recorder.resume();
+      setVoicePaused(false);
+    }
+  };
+
+  const handleSendVoice = async () => {
+    if (voiceProcessing) return;
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      setPendingSendAfterStop(true);
+      recorder.stop();
+      return;
+    }
+    if (voiceBlob) {
+      await submitVoiceBlob(voiceBlob);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -377,8 +541,8 @@ const [cardId] = useState(generateId());
           {/* LED bar: 5 segs */}
           {[2,3,4,5,6].map((x,i) => (
             <rect key={x} x={x} y={3} width={1} height={2}
-              fill={deviceScan && deviceScan.sus_level > i*2
-                ? (deviceScan.sus_level<=3?"#33e07a":deviceScan.sus_level<=6?"#d4a017":deviceScan.sus_level<=8?"#e87030":"#c42040")
+              fill={deviceScan && deviceLevel > i*2
+                ? (deviceLevel<=3?"#33e07a":deviceLevel<=6?"#d4a017":deviceLevel<=8?"#e87030":"#c42040")
                 : "#1a1030"} />
           ))}
           {/* Tone dot */}
@@ -409,6 +573,8 @@ const [cardId] = useState(generateId());
       >
         <SusOScanMeter
           susScan={deviceScan}
+          susLevel={deviceLevel}
+          scanHint={scanHint}
           suspectId={suspect.id}
           gameId={gameId}
           scanning={scanning}
@@ -707,7 +873,7 @@ const [cardId] = useState(generateId());
           boxShadow: "3px 3px 0 #000",
         }}
       >
-        CARNET DE IDENTIFICACIÓN
+        {t.interrogation.idCardTitle}
       </div>
 
       {/* CLOSE BUTTON */}
@@ -779,24 +945,24 @@ const [cardId] = useState(generateId());
           <div><b style={{ color: "#ffd700" }}>ID:</b> {cardId}</div>
 
           <div>
-            <b style={{ color: "#ffd700" }}>Edad:</b>{" "}
-            {suspect.age ?? "??"} años
+            <b style={{ color: "#ffd700" }}>{t.interrogation.idCardAge}:</b>{" "}
+            {suspect.age ?? "??"}{suspect.age != null ? ` ${language === "es" ? "años" : "years"}` : ""}
           </div>
 
           <div>
-            <b style={{ color: "#ffd700" }}>Cooperación:</b>{" "}
+            <b style={{ color: "#ffd700" }}>{t.interrogation.idCardCooperation}:</b>{" "}
             <span
               style={{
                 fontWeight: 900,
                 color: suspect.alibi_cooperative ? "#22c55e" : "#ef4444",
               }}
             >
-              {suspect.alibi_cooperative ? "Colaboró" : "No colaboró"}
+              {suspect.alibi_cooperative ? t.interrogation.idCardCooperated : t.interrogation.idCardNotCooperated}
             </span>
           </div>
 
           <div style={{ marginTop: 8 }}>
-            <b style={{ color: "#ffd700" }}>Remarks:</b>
+            <b style={{ color: "#ffd700" }}>{t.interrogation.idCardRemarks}:</b>
             <div
               style={{
                 marginTop: 4,
@@ -825,7 +991,7 @@ const [cardId] = useState(generateId());
               boxShadow: "3px 3px 0 #000",
             }}
           >
-            VERIFIED SUBJECT
+            {t.interrogation.idCardVerified}
           </div>
         </div>
       </div>
@@ -857,6 +1023,9 @@ const [cardId] = useState(generateId());
             const content = getContent(msg, i);
             const isTypingThis = typewriterMsgIdx === i;
             const isInitialStatement = !isDetective && i === 0;
+            const scanTone = msg.sus_scan?.tone ?? "static";
+            const toneBorder = scanTone === "warm" ? "rgba(212,160,23,0.55)" : scanTone === "cold" ? "rgba(22,137,158,0.55)" : "rgba(122,90,154,0.55)";
+            const toneGlow = scanTone === "warm" ? "rgba(212,160,23,0.22)" : scanTone === "cold" ? "rgba(22,137,158,0.18)" : "rgba(122,90,154,0.18)";
 
             return (
               <div
@@ -913,6 +1082,9 @@ const [cardId] = useState(generateId());
                   className={`max-w-[80%] dialogue ${isTypingThis && !isDetective ? "dialogue-typing" : ""}`}
                   style={{
                     padding: "12px 18px",
+                    border: !isDetective ? `1px solid ${toneBorder}` : undefined,
+                    boxShadow: !isDetective ? `0 0 10px ${toneGlow}` : undefined,
+                    filter: !isDetective && scanTone === "static" ? "contrast(1.05) saturate(0.95)" : undefined,
                     ...(isInitialStatement
   ? {
       background:
@@ -991,6 +1163,66 @@ const [cardId] = useState(generateId());
             {t.interrogation.profanityWarning}
           </p>
         )}
+        {voiceError && (
+          <p
+            className="font-pixel mb-2 animate-fadein"
+            style={{ fontSize: 6, color: "var(--wine-lt)", letterSpacing: "0.08em" }}
+          >
+            {voiceError}
+          </p>
+        )}
+
+        {voiceMode && (
+          <div
+            className="mb-3 px-3 py-2"
+            style={{
+              border: "1px solid rgba(212,160,23,0.45)",
+              background: "rgba(10,8,18,0.55)",
+            }}
+          >
+            <p className="font-pixel" style={{ fontSize: 6, color: "var(--gold-lt)", marginBottom: 8 }}>
+              {voiceRecording ? (voicePaused ? t.interrogation.voicePaused : t.interrogation.voiceRecording) : voiceBlob ? t.interrogation.voiceReady : t.interrogation.voiceStart}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleStartVoice}
+                disabled={voiceRecording || voiceProcessing || interrogating}
+                className="btn-rpg btn-rpg-ghost btn-rpg-sm"
+                style={{ fontSize: 6 }}
+              >
+                {t.interrogation.voiceStart}
+              </button>
+              <button
+                type="button"
+                onClick={handlePauseResumeVoice}
+                disabled={!voiceRecording || voiceProcessing}
+                className="btn-rpg btn-rpg-ghost btn-rpg-sm"
+                style={{ fontSize: 6 }}
+              >
+                {voicePaused ? t.interrogation.voiceResume : t.interrogation.voicePause}
+              </button>
+              <button
+                type="button"
+                onClick={handleDiscardVoice}
+                disabled={voiceProcessing || (!voiceRecording && !voiceBlob)}
+                className="btn-rpg btn-rpg-ghost btn-rpg-sm"
+                style={{ fontSize: 6 }}
+              >
+                {voiceBlob ? t.interrogation.voiceDelete : t.interrogation.voiceDiscard}
+              </button>
+              <button
+                type="button"
+                onClick={handleSendVoice}
+                disabled={voiceProcessing || (!voiceRecording && !voiceBlob)}
+                className="btn-rpg btn-rpg-sm"
+                style={{ fontSize: 6 }}
+              >
+                {voiceProcessing ? t.interrogation.voiceSending : t.interrogation.voiceSend}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 items-center">
           <button
@@ -1049,6 +1281,59 @@ const [cardId] = useState(generateId());
                 letterSpacing: "0.08em",
               }}>
                 {t.interrogation.suggestButton}
+              </div>
+            </div>
+
+            <div style={{ position: "relative", flexShrink: 0 }} className="suggest-btn-wrap">
+              <button
+                type="button"
+                onClick={() => setVoiceMode((v) => !v)}
+                disabled={interrogating || voiceProcessing}
+                className="btn-rpg btn-rpg-ghost btn-rpg-sm suggest-trigger"
+                style={{
+                  width: 42,
+                  height: 36,
+                  padding: 0,
+                  borderColor: voiceMode ? "var(--gold)" : undefined,
+                  color: voiceMode ? "var(--gold-lt)" : undefined,
+                  opacity: interrogating || voiceProcessing ? 0.5 : 1,
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: voiceMode ? "0 0 10px rgba(212,160,23,0.35)" : undefined,
+                }}
+                aria-label={t.interrogation.voiceStart}
+                title={t.interrogation.voiceStart}
+              >
+                <svg width="20" height="20" viewBox="0 0 12 12" shapeRendering="crispEdges" style={{ imageRendering: "pixelated" }} aria-hidden>
+                  <rect x="0" y="0" width="12" height="12" fill={voiceMode ? "#1d1808" : "#101015"} />
+                  <rect x="1" y="1" width="10" height="10" fill={voiceMode ? "#2b220d" : "#1a1a24"} />
+                  <rect x="4" y="1" width="4" height="5" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="3" y="2" width="1" height="3" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="8" y="2" width="1" height="3" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="5" y="6" width="2" height="2" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="3" y="8" width="6" height="1" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="5" y="9" width="2" height="2" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                  <rect x="4" y="11" width="4" height="1" fill={voiceMode ? "#f5c842" : "#d7d9e5"} />
+                </svg>
+              </button>
+              <div className="suggest-tooltip font-pixel" style={{
+                position: "absolute",
+                bottom: "calc(100% + 8px)",
+                left: "50%",
+                transform: "translateX(-50%)",
+                whiteSpace: "nowrap",
+                background: "var(--abyss)",
+                border: "1px solid var(--gold-dk)",
+                color: "var(--gold-lt)",
+                fontSize: 5,
+                padding: "5px 9px",
+                pointerEvents: "none",
+                opacity: 0,
+                transition: "opacity 0.15s ease",
+                zIndex: 50,
+                letterSpacing: "0.08em",
+              }}>
+                {t.interrogation.voiceStart}
               </div>
             </div>
 

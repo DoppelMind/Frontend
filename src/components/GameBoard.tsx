@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { GameData, Message } from "@/types/game";
-import { analyzeSuspect } from "@/lib/api";
-import { GlobalInconsistencyReport, GlobalReportState, InconsistencyFinding, LobbyDeliveryEvent } from "@/types/report";
+import { GlobalReportState } from "@/types/report";
 import MapHub from "./MapHub";
 import InterrogationRoom from "./InterrogationRoom";
 import AccusationModal from "./AccusationModal";
@@ -50,23 +49,12 @@ export default function GameBoard({
   const [fading, setFading] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [volume, setVolume] = useState(0.8);
-  const [globalReportState, setGlobalReportState] = useState<GlobalReportState>({
+  const globalReportState: GlobalReportState = {
     status: "idle",
     seq: 0,
     report: null,
-  });
-  const [reportRequestedOnce, setReportRequestedOnce] = useState(false);
-  const [showReportConfirm, setShowReportConfirm] = useState(false);
-  const [deliveryEvent, setDeliveryEvent] = useState<LobbyDeliveryEvent | null>(null);
-  const timersRef = useRef<{ delivering?: ReturnType<typeof setTimeout> }>({});
+  };
   const t = getText(language);
-
-  useEffect(() => {
-    timersRef.current = {};
-    setGlobalReportState({ status: "idle", seq: 0, report: null });
-    setReportRequestedOnce(false);
-    setDeliveryEvent(null);
-  }, [gameData.game_id]);
 
   /** Smooth fade transition between views */
   const navigate = (nextView: View, suspectId?: string) => {
@@ -91,105 +79,6 @@ export default function GameBoard({
       setFading(false);
     }, 220);
   };
-
-  const requestContradictionReport = () => {
-    if (reportRequestedOnce) return;
-    setShowReportConfirm(true);
-  };
-
-  const runContradictionReport = async () => {
-    setShowReportConfirm(false);
-    setReportRequestedOnce(true);
-
-    if (timersRef.current.delivering) clearTimeout(timersRef.current.delivering);
-    const seq = Date.now();
-    setGlobalReportState({ status: "processing", seq, report: null });
-
-    try {
-      // Analyze all suspects in parallel with Mistral
-      const results = await Promise.allSettled(
-        gameData.suspects.map((s) => analyzeSuspect(gameData.game_id, s.id))
-      );
-
-      // Map Mistral results → InconsistencyFinding[]
-      const findings: InconsistencyFinding[] = [];
-      let sourceCount = 0;
-      let totalContradictions = 0;
-      const perSuspectSummary: string[] = [];
-
-      results.forEach((result, i) => {
-        const suspect = gameData.suspects[i];
-        const history = interrogationHistories[suspect.id] ?? [];
-        sourceCount += history.filter((m) => m.role === "suspect").length;
-
-        if (result.status === "rejected") return;
-        const ar = result.value;
-        totalContradictions += ar.contradictions.length;
-
-        const scoreLabel =
-          ar.suspicion_score >= 70
-            ? (language === "es" ? "alta sospecha" : "high suspicion")
-            : ar.suspicion_score >= 40
-            ? (language === "es" ? "sospecha moderada" : "moderate suspicion")
-            : (language === "es" ? "baja sospecha" : "low suspicion");
-
-        perSuspectSummary.push(`${suspect.name} ${ar.suspicion_score}/100`);
-
-        const confidence =
-          ar.suspicion_score >= 70
-            ? (language === "es" ? "alta" : "high")
-            : ar.suspicion_score >= 40
-            ? (language === "es" ? "media" : "medium")
-            : (language === "es" ? "baja" : "low");
-
-        ar.contradictions.forEach((c) => {
-          findings.push({
-            title: `${suspect.name} · ${scoreLabel}`,
-            detail: c,
-            confidence,
-            relatedSuspects: [suspect.name],
-          });
-        });
-      });
-
-      const summaryScores = perSuspectSummary.join(", ");
-      const summary =
-        totalContradictions > 0
-          ? language === "es"
-            ? `Análisis Mistral — ${summaryScores}. ${totalContradictions} contradicción(es) detectada(s).`
-            : `Mistral Analysis — ${summaryScores}. ${totalContradictions} contradiction(s) detected.`
-          : language === "es"
-          ? `Análisis Mistral — ${summaryScores}. Sin contradicciones; se recomienda continuar el interrogatorio.`
-          : `Mistral Analysis — ${summaryScores}. No contradictions found; keep interrogating.`;
-
-      const report: GlobalInconsistencyReport = {
-        generatedAt: Date.now(),
-        summary,
-        findings,
-        sourceCount,
-      };
-
-      setGlobalReportState({ status: "delivering", seq, report });
-      setDeliveryEvent({ seq });
-
-      timersRef.current.delivering = setTimeout(() => {
-        setGlobalReportState((prev) => {
-          if (prev.seq !== seq) return prev;
-          return { ...prev, status: "ready" };
-        });
-      }, 1900);
-    } catch {
-      // On total failure, reset so the user can retry
-      setGlobalReportState({ status: "idle", seq: 0, report: null });
-      setReportRequestedOnce(false);
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (timersRef.current.delivering) clearTimeout(timersRef.current.delivering);
-    };
-  }, []);
 
   const selectedSuspect =
     gameData.suspects.find((s) => s.id === selectedSuspectId) ?? null;
@@ -232,7 +121,7 @@ export default function GameBoard({
           </span>
         </div>
 
-        {/* Right: stats + audio controls + report button + accusation button */}
+        {/* Right: stats + audio controls + accusation button */}
         <div className="flex items-center gap-4 flex-shrink-0">
           {totalQuestions > 0 && (
             <span
@@ -271,58 +160,6 @@ export default function GameBoard({
               </div>
             )}
           </div>
-
-          <button
-            onClick={requestContradictionReport}
-            title={t.game.reportButton}
-            aria-label={t.game.reportButton}
-            disabled={
-              reportRequestedOnce ||
-              globalReportState.status === "processing" ||
-              globalReportState.status === "delivering"
-            }
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              border: "1px solid var(--gold-dk)",
-              background: "linear-gradient(to bottom, #f2e7c3, #cfbb88)",
-              color: "#3b2d13",
-              display: "grid",
-              placeItems: "center",
-              boxShadow: "0 0 10px rgba(212,160,23,0.22)",
-              cursor: "pointer",
-              opacity:
-                reportRequestedOnce ||
-                globalReportState.status === "processing" ||
-                globalReportState.status === "delivering"
-                  ? 0.65
-                  : 1,
-            }}
-          >
-            <svg
-              width={16} height={19}
-              viewBox="0 0 8 10"
-              shapeRendering="crispEdges"
-              style={{ imageRendering: "pixelated" }}
-              aria-hidden
-            >
-              {/* Paper body */}
-              <rect x={0} y={1} width={6} height={9} fill="#2b1f0a" />
-              {/* Folded corner (top-right) */}
-              <rect x={6} y={2} width={2} height={8} fill="#2b1f0a" />
-              <rect x={6} y={1} width={2} height={1} fill="#1a1208" />
-              <rect x={6} y={0} width={2} height={1} fill="#110c05" />
-              {/* Fold crease */}
-              <rect x={6} y={2} width={1} height={1} fill="#1a1208" />
-              {/* Gold accent bar at top */}
-              <rect x={0} y={1} width={6} height={1} fill="#d4a017" />
-              {/* Text lines */}
-              <rect x={1} y={3} width={3} height={1} fill="#7a6030" />
-              <rect x={1} y={5} width={5} height={1} fill="#7a6030" />
-              <rect x={1} y={7} width={2} height={1} fill="#7a6030" />
-            </svg>
-          </button>
 
           <button
             onClick={() => setShowAccuseModal(true)}
@@ -384,8 +221,8 @@ export default function GameBoard({
               gameData={gameData}
               interrogationHistories={interrogationHistories}
               globalReportState={globalReportState}
-              deliveryEvent={deliveryEvent}
-              onConsumeDeliveryEvent={() => setDeliveryEvent(null)}
+              deliveryEvent={null}
+              onConsumeDeliveryEvent={() => null}
               onSelectSuspect={(id) => navigate("interrogate", id)}
               language={language}
             />
@@ -408,94 +245,6 @@ export default function GameBoard({
           )}
         </div>
       </div>
-
-      {/* ── Report Confirm Modal ───────────────────────────────── */}
-      {showReportConfirm && (
-        <div
-          className="animate-fadein"
-          style={{
-            position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(4,2,10,0.82)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-          onClick={() => setShowReportConfirm(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "linear-gradient(180deg, #0f0b1a 0%, #080510 100%)",
-              border: "2px solid var(--gold-dk)",
-              boxShadow: "0 0 32px rgba(212,160,23,0.28), 4px 4px 0 #000",
-              padding: "0",
-              width: 320,
-              userSelect: "none",
-            }}
-          >
-            {/* Title bar */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "8px 14px",
-              borderBottom: "2px solid var(--gold-dk)",
-              background: "rgba(212,160,23,0.08)",
-            }}>
-              {/* Pixel document icon */}
-              <svg width={14} height={16} viewBox="0 0 7 8" shapeRendering="crispEdges" style={{ imageRendering: "pixelated", flexShrink: 0 }}>
-                <rect x={0} y={0} width={5} height={8} fill="#ede0b0" />
-                <rect x={5} y={1} width={2} height={7} fill="#ede0b0" />
-                <rect x={5} y={0} width={2} height={1} fill="#c8b880" />
-                <rect x={5} y={1} width={1} height={1} fill="#c8b880" />
-                <rect x={0} y={1} width={5} height={1} fill="#d4a017" />
-                <rect x={1} y={3} width={3} height={1} fill="#8a7040" />
-                <rect x={1} y={5} width={4} height={1} fill="#8a7040" />
-                <rect x={1} y={7} width={2} height={1} fill="#8a7040" />
-              </svg>
-              <span className="font-pixel" style={{ fontSize: 6, color: "var(--gold-lt)", letterSpacing: "0.15em" }}>
-                {t.game.reportButton.toUpperCase()}
-              </span>
-            </div>
-
-            {/* Body */}
-            <div style={{ padding: "20px 18px 16px" }}>
-              {/* Scanline decoration */}
-              <div style={{
-                background: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(212,160,23,0.03) 3px, rgba(212,160,23,0.03) 4px)",
-                position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
-              }} />
-              <p
-                className="font-vt"
-                style={{
-                  fontSize: 18,
-                  color: "var(--cream)",
-                  lineHeight: 1.4,
-                  marginBottom: 20,
-                  position: "relative",
-                  zIndex: 1,
-                }}
-              >
-                {t.game.reportConfirm}
-              </p>
-
-              {/* YES / NO buttons */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", position: "relative", zIndex: 1 }}>
-                <button
-                  onClick={() => setShowReportConfirm(false)}
-                  className="btn-rpg btn-rpg-ghost btn-rpg-sm font-pixel"
-                  style={{ fontSize: 7, minWidth: 72 }}
-                >
-                  ✕ {t.common.no}
-                </button>
-                <button
-                  onClick={runContradictionReport}
-                  className="btn-rpg btn-rpg-sm font-pixel"
-                  style={{ fontSize: 7, minWidth: 72 }}
-                >
-                  ✓ {t.common.yes}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Accusation Modal ──────────────────────────────────── */}
       {showAccuseModal && (

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SusOScanResult } from "@/types/game";
 import { Language, getText } from "@/lib/i18n";
+import { ScanHintResult } from "@/lib/api";
 
 // ── Color driven by sus_level (accumulated suspicion) ────────────────────────
 function levelColor(level: number): string {
@@ -37,6 +38,8 @@ const TONE_DOT: Record<string, string> = {
 
 interface Props {
   susScan: SusOScanResult | null;
+  susLevel: number;
+  scanHint: ScanHintResult | null;
   suspectId: string;
   gameId: string;
   scanning: boolean;
@@ -46,13 +49,18 @@ interface Props {
 
 export default function SusOScanMeter({
   susScan,
+  susLevel,
+  scanHint,
   scanning,
   onScan,
   language,
 }: Props) {
   const t = getText(language).interrogation.susoscan;
-  const tone  = susScan?.tone ?? "static";
-  const level = susScan?.sus_level ?? 5;
+  const tone  = susScan?.tone ?? scanHint?.tone ?? "static";
+  const level = susLevel ?? 5;
+  const globalLevel = scanHint?.global_level ?? 5;
+  const usesRemaining = scanHint?.uses_remaining ?? 3;
+  const cooldownSeconds = scanHint?.cooldown_seconds ?? 0;
 
   // Animate level with ease-out cubic
   const [displayLevel, setDisplayLevel] = useState(level);
@@ -203,36 +211,47 @@ export default function SusOScanMeter({
           {susScan ? susScan.narration : t.noSignal}
         </p>
 
-        {/* Reason tags */}
-        {susScan && susScan.reason_tags.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 5, position: "relative", zIndex: 2 }}>
-            {susScan.reason_tags.map((tag) => (
-              <span
-                key={tag}
-                className="font-pixel"
-                style={{
-                  fontSize: 5,
-                  padding: "2px 5px",
-                  background: `${color}18`,
-                  border: `1px solid ${color}55`,
-                  color,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                  transition: "color 0.6s ease, border-color 0.6s ease",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
+        <p
+          className="font-vt"
+          style={{
+            marginTop: 4,
+            fontSize: 11,
+            color: tone === "warm" ? "#d4a017" : tone === "cold" ? "#6ebfd0" : "#b39ad0",
+            lineHeight: 1.3,
+            minHeight: 28,
+            position: "relative",
+            zIndex: 2,
+          }}
+        >
+          {scanHint?.hint ?? " "}
+        </p>
+
+        {susScan?.reason && (
+          <p
+            className="font-vt"
+            style={{
+              marginTop: 4,
+              fontSize: 11,
+              color: "var(--dim)",
+              lineHeight: 1.3,
+              minHeight: 26,
+              position: "relative",
+              zIndex: 2,
+            }}
+          >
+            {susScan.reason}
+          </p>
         )}
       </div>
 
       {/* SCAN button */}
       <div style={{ padding: "4px 7px 6px" }}>
+        <div className="font-pixel" style={{ fontSize: 5, color: "var(--dim)", marginBottom: 4, letterSpacing: "0.08em" }}>
+          G:{String(globalLevel).padStart(2, "0")}/10 · CD:{cooldownSeconds}s · USES:{usesRemaining}
+        </div>
         <button
           onClick={onScan}
-          disabled={scanning}
+          disabled={scanning || usesRemaining <= 0 || cooldownSeconds > 0}
           className="font-pixel"
           style={{
             width: "100%",
@@ -244,12 +263,12 @@ export default function SusOScanMeter({
             color: scanning ? "var(--dim)" : color,
             fontSize: 7,
             letterSpacing: "0.2em",
-            cursor: scanning ? "not-allowed" : "pointer",
+            cursor: scanning || usesRemaining <= 0 || cooldownSeconds > 0 ? "not-allowed" : "pointer",
             transition: "all 0.3s ease",
             boxShadow: scanning ? "none" : `0 0 8px ${color}44`,
           }}
         >
-          {scanning ? t.scanning : t.scan}
+          {scanning ? t.scanning : cooldownSeconds > 0 ? `COOLDOWN ${cooldownSeconds}s` : usesRemaining <= 0 ? "NO CHARGES" : t.scan}
         </button>
       </div>
 

@@ -88,7 +88,7 @@ export default function DoppelMindApp() {
     }));
 
     try {
-      const { answer, emotion, sus_scan } = await interrogateSuspect(
+      const { answer, emotion, sus_scan, sus_level } = await interrogateSuspect(
         gameData.game_id,
         selectedSuspectId,
         question,
@@ -100,7 +100,8 @@ export default function DoppelMindApp() {
         content: answer,
         timestamp: Date.now(),
         emotion: emotion as SuspectEmotion,
-        sus_scan: sus_scan ?? undefined,
+        sus_scan,
+        sus_level,
       };
       setInterrogationHistories((prev) => ({
         ...prev,
@@ -138,7 +139,7 @@ export default function DoppelMindApp() {
     await unlockExtra(gameData.game_id, selectedSuspectId);
     setShowExtraModal(false);
   } catch {
-    setError("No se pudieron desbloquear las preguntas extra.");
+    setError(t.game.extraUnlockError);
   }
 };
 
@@ -243,9 +244,9 @@ export default function DoppelMindApp() {
           lineHeight: "1.6",
         }}
       >
-        Has usado las 5 preguntas base.
+        {t.game.extraUsedBase}
         <br />
-        ¿Desbloquear 2 preguntas adicionales?
+        {t.game.extraUnlockAsk}
       </p>
 
       <div className="flex gap-6 justify-center">
@@ -262,7 +263,7 @@ export default function DoppelMindApp() {
             boxShadow: "3px 3px 0 #000",
           }}
         >
-          SÍ
+          {t.common.yes}
         </button>
 
         <button
@@ -278,7 +279,7 @@ export default function DoppelMindApp() {
             boxShadow: "3px 3px 0 #000",
           }}
         >
-          NO
+          {t.common.no}
         </button>
       </div>
 
